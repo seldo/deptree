@@ -14,6 +14,7 @@
   "scripts": {
     "prestart": "browserify browser.js -o public/main.js -d",
     "dev": "npm run prestart & nodemon index.js",
+    "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
