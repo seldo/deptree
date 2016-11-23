@@ -14,7 +14,7 @@
 
 </style>
 <div>
-<input id="package" type="text" value="hapi-mysql"><button onclick="javascript:loadPackage()">Start</button>
+<input id="package" type="text" value="hapi-mysql" onkeypress="javascript:isEnter(event)"><button onclick="javascript:loadPackage()">Start</button>
 </div>
 <svg width="960" height="600"></svg>
 <script src="https://d3js.org/d3.v4.min.js"></script>
@@ -32,6 +32,14 @@ var simulation = d3.forceSimulation()
     .force("charge", d3.forceManyBody())
     .force("center", d3.forceCenter(width / 2, height / 2));
 
+// prevents cyclicality from exploding everything
+var existingNodes = {}
+
+var resetNodes = function() {
+  setNodes([],[])
+  existingNodes = {}
+}
+
 var addNodes = function(moreNodes,moreLinks) {
   var oldNodes = simulation.nodes()
   oldNodes = oldNodes.concat(moreNodes)
@@ -39,15 +47,28 @@ var addNodes = function(moreNodes,moreLinks) {
   var oldLinks = simulation.force("link").links()
   oldLinks = oldLinks.concat(moreLinks)
 
+  setNodes(oldNodes,oldLinks)
+}
+
+var setNodes = function(nodes,links) {
+
+  // find all the new links and give them a stroke
   var linkSvg = svg.selectAll(".links")
     .selectAll("line")
-    .data(oldLinks)
+    .data(links)
     .enter().append("line")
     .attr("stroke-width", function(d) { return Math.sqrt(d.value); })
 
+  // find all the old links and remove them
+  var linkSvg = svg.selectAll(".links")
+    .selectAll("line")
+    .data(links)
+    .exit().remove()
+
+  // find all the new nodes and draw circles on them
   var nodeSvg = svg.selectAll(".nodes")
     .selectAll("circle")
-    .data(oldNodes)
+    .data(nodes)
     .enter().append("circle")
     .attr("r", 5)
     .attr("fill", function(d) { return color(d.group); })
@@ -59,10 +80,18 @@ var addNodes = function(moreNodes,moreLinks) {
   nodeSvg.append("title")
       .text(function(d) { return d.id; });
 
-  var newNodes = svg.selectAll(".nodes").selectAll("circle").data(oldNodes)
-  var newLinks = svg.selectAll(".links").selectAll("line").data(oldLinks)
+  // find all the old nodes and remove them
+  var nodeSvg = svg.selectAll(".nodes")
+    .selectAll("circle")
+    .data(nodes)
+    .exit().remove()
 
-  simulation.nodes(oldNodes)
+  // get a complete list of the updated nodes and links
+  var newNodes = svg.selectAll(".nodes").selectAll("circle").data(nodes)
+  var newLinks = svg.selectAll(".links").selectAll("line").data(links)
+
+  // set the nodes and links and attach a tick handler
+  simulation.nodes(nodes)
     .on("tick",function() {
         newLinks
             .attr("x1", function(d) { return d.source.x; })
@@ -75,13 +104,21 @@ var addNodes = function(moreNodes,moreLinks) {
             .attr("cy", function(d) { return d.y; });
       }
     )
-  simulation.force("link").links(oldLinks)
+  simulation.force("link").links(links)
 
+  // make it less gross
   simulation.alphaTarget(0.3).restart();
 
 }
 
+var isEnter = function(e) {
+  if(e.keyCode == 13){
+    loadPackage()
+  }
+}
+
 var loadPackage = function() {
+  resetNodes()
   var packageName = document.getElementById('package').value
   // add our root node, no links yet
   addNodes(
@@ -89,11 +126,10 @@ var loadPackage = function() {
     []
   )
   fetchDeps(packageName,function() {
-    console.log("package loaded")
+    console.log(`root package ${packageName} loaded`)
   })
 }
 
-var existingNodes = {}
 var fetchDeps = function(packageName,cb) {
 
   fetch(`/api/${packageName}/latest`).then(function(response) {
@@ -164,12 +200,6 @@ var initialize = function(graph) {
         .attr("cy", function(d) { return d.y; });
   }
 
-  return {
-    link: link,
-    node: node,
-    ticked: ticked
-  }
-
 }
 
 function dragstarted(d) {
@@ -193,6 +223,6 @@ var trivialGraph = {
   nodes: [],
   links: []
 }
-var handler = initialize(trivialGraph)
+initialize(trivialGraph)
 
 </script>
