@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.links line {
+  stroke: #999;
+  stroke-opacity: 0.6;
+}
+
+.nodes circle {
+  stroke: #fff;
+  stroke-width: 1.5px;
+}
+
+</style>
+<input id="package" type="text" value="hapi-mysql"><button onclick="javascript:loadPackage()">Start</button>
+<button onclick="javascript:addNodes()">More</button>
+<button onclick="javascript:addMoreNodes()">More</button>
+<svg width="960" height="600"></svg>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="/public/main.js"></script>
+<script>
+
+var svg = d3.select("svg"),
+    width = +svg.attr("width"),
+    height = +svg.attr("height");
+
+var color = d3.scaleOrdinal(d3.schemeCategory20);
+
+var simulation = d3.forceSimulation()
+    .force("link", d3.forceLink().id(function(d) { return d.id; }))
+    .force("charge", d3.forceManyBody())
+    .force("center", d3.forceCenter(width / 2, height / 2));
+
+var graph = {
+  nodes: [],
+  links: []
+}
+
+var loadPackage = function() {
+  var packageName = document.getElementById('package').value
+  graph.nodes.push({ id: packageName, group: 1})
+  fetchDeps(packageName,function() {
+    console.log("package loaded")
+  })
+}
+
+var addNodes = function() {
+  var oldNodes = simulation.nodes()
+  oldNodes.push(
+    {id: "bob", group: "1"},
+    {id: "john", group: "2"},
+    {id: "case", group: "2"},
+    {id: "joe1", group: "2"},
+    {id: "joe2", group: "2"},
+    {id: "joe3", group: "2"},
+    {id: "joe4", group: "2"}
+  )
+
+  var oldLinks = simulation.force("link").links()
+  oldLinks.push(
+    {source: "root", target: "bob", value: 1},
+    {source: "bob", target: "john", value: 1},
+    {source: "case", target: "root", value: 1},
+    {source: "joe1", target: "case", value: 1},
+    {source: "joe2", target: "case", value: 1},
+    {source: "joe3", target: "case", value: 1},
+    {source: "joe4", target: "case", value: 1}
+  )
+
+  var linkSvg = svg.selectAll(".links")
+    .selectAll("line")
+    .data(oldLinks)
+    .enter().append("line")
+    .attr("stroke-width", function(d) { return Math.sqrt(d.value); })
+
+  var nodeSvg = svg.selectAll(".nodes")
+    .selectAll("circle")
+    .data(oldNodes)
+    .enter().append("circle")
+    .attr("r", 5)
+    .attr("fill", function(d) { return color(d.group); })
+    .call(d3.drag()
+        .on("start", dragstarted)
+        .on("drag", dragged)
+        .on("end", dragended))
+
+  nodeSvg.append("title")
+      .text(function(d) { return d.id; });
+
+  var newNodes = svg.selectAll(".nodes").selectAll("circle").data(oldNodes)
+  var newLinks = svg.selectAll(".links").selectAll("line").data(oldLinks)
+
+  simulation.nodes(oldNodes)
+    .on("tick",function() {
+        newLinks
+            .attr("x1", function(d) { return d.source.x; })
+            .attr("y1", function(d) { return d.source.y; })
+            .attr("x2", function(d) { return d.target.x; })
+            .attr("y2", function(d) { return d.target.y; });
+
+        newNodes
+            .attr("cx", function(d) { return d.x; })
+            .attr("cy", function(d) { return d.y; });
+      }
+    )
+  simulation.force("link").links(oldLinks)
+
+  simulation.restart()
+
+}
+
+var addMoreNodes = function() {
+  var newGraph = {
+    nodes: [
+      {id: "root", group: "1"},
+      {id: "bob", group: "1"},
+      {id: "a", group: "1"},
+      {id: "b", group: "1"},
+      {id: "c", group: "1"},
+      {id: "d", group: "1"}
+    ],
+    links: [
+      {source: "bob", target: "root", value: 1},
+      {source: "a", target: "bob", value: 1},
+      {source: "b", target: "c", value: 1},
+      {source: "c", target: "d", value: 1},
+      {source: "d", target: "b", value: 1}
+    ]
+  }
+  initialize(newGraph)
+}
+
+var fetchDeps = function(packageName,cb) {
+
+  fetch(`/api/${packageName}/latest`).then(function(response) {
+    if(response.status == "200") {
+      response.json().then(function(package) {
+        for(var dep in package.dependencies) {
+          graph.nodes.push({id: dep, group: 1})
+          graph.links.push({source: dep, target: packageName, value: 1})
+          simulation.nodes(graph.nodes)
+          simulation.force("link").links(graph.links);
+          fetchDeps(dep)
+          if (cb) cb()
+        }
+      })
+    } else {
+      console.log(`no response for ${packageName}`)
+    }
+  })
+
+}
+
+var initialize = function(graph) {
+  var link = svg.append("g")
+    .attr("class", "links")
+    .selectAll("line")
+    .data(graph.links)
+    .enter().append("line")
+      .attr("stroke-width", function(d) { return Math.sqrt(d.value); });
+
+  var node = svg.append("g")
+      .attr("class", "nodes")
+    .selectAll("circle")
+    .data(graph.nodes)
+    .enter().append("circle")
+      .attr("r", 5)
+      .attr("fill", function(d) { return color(d.group); })
+      .call(d3.drag()
+          .on("start", dragstarted)
+          .on("drag", dragged)
+          .on("end", dragended));
+
+  node.append("title")
+      .text(function(d) { return d.id; });
+
+  simulation
+      .nodes(graph.nodes)
+      .on("tick", ticked);
+
+  simulation.force("link")
+      .links(graph.links);
+
+  function ticked() {
+    link
+        .attr("x1", function(d) { return d.source.x; })
+        .attr("y1", function(d) { return d.source.y; })
+        .attr("x2", function(d) { return d.target.x; })
+        .attr("y2", function(d) { return d.target.y; });
+
+    node
+        .attr("cx", function(d) { return d.x; })
+        .attr("cy", function(d) { return d.y; });
+  }
+
+  return {
+    link: link,
+    node: node,
+    ticked: ticked
+  }
+
+}
+
+function dragstarted(d) {
+  if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+  d.fx = d.x;
+  d.fy = d.y;
+}
+
+function dragged(d) {
+  d.fx = d3.event.x;
+  d.fy = d3.event.y;
+}
+
+function dragended(d) {
+  if (!d3.event.active) simulation.alphaTarget(0);
+  d.fx = null;
+  d.fy = null;
+}
+
+var trivialGraph = {
+  nodes: [
+    {"id": "root", group: "1"},
+    {"id": "mary", group: "1"}
+  ],
+  links: [
+    {source: "mary", target: "root", value: 1}
+  ]
+}
+var handler = initialize(trivialGraph)
+
+</script>

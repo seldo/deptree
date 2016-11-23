@@ -1,0 +1,21 @@
+{
+  "name": "deptree",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "browserify": "^13.1.1",
+    "isomorphic-fetch": "^2.2.1",
+    "restify": "^4.3.0"
+  },
+  "devDependencies": {
+    "nodemon": "^1.11.0"
+  },
+  "scripts": {
+    "prestart": "browserify browser.js -o public/main.js -d",
+    "dev": "npm run prestart & nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
