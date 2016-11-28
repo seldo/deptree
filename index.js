@@ -4,6 +4,7 @@ const headers = {}
 var restify = require('restify');
 var fetch = require('isomorphic-fetch')
 var url = require('url')
+var fs = require('fs')
 
 var server = restify.createServer({
   name: 'deptree',
@@ -35,6 +36,12 @@ server.get('/api/.*', function(req, res, next) {
     })
   })
 });
+
+// serve root page
+server.get('/', restify.serveStatic({
+  directory: './public',
+  file: 'index.html'
+}));
 
 // serve static files
 server.get(/\/public\/?.*/, restify.serveStatic({
