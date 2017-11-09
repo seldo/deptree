@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
+    "async": "^2.6.0",
     "browserify": "^13.1.1",
     "isomorphic-fetch": "^2.2.1",
     "restify": "^4.3.0"
